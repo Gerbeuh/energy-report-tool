@@ -838,12 +838,15 @@ if uploaded_file is not None:
                 if validation_stats.get('outliers') and validation_stats['outliers']['total_outliers'] > 0:
                     st.markdown("**📈 Statistical summary**")
                     ol = validation_stats['outliers']
-                    stats_col1 = st.columns(1)
+                    stats_col1, stats_col2 = st.columns(2)
                     
                     with stats_col1:
                         st.write(f"**Min:** {ol['min_value']:.2f} {current_unit}")
                         st.write(f"**Mean:** {ol['mean']:.2f} {current_unit}")
                         st.write(f"**Max:** {ol['max_value']:.2f} {current_unit}")
+                        st.write(f"**Median:** {ol['median']:.2f} {current_unit}")
+                    
+                    with stats_col2:
                     
                     if ol['extreme_outliers'] > 0:
                         st.warning(f"⚠️ {ol['extreme_outliers']} extreme outliers detected (>3×IQR). These may indicate data errors or unusual consumption events.")
