@@ -317,6 +317,20 @@ def validate_energy_data(df, energy_type):
     else:
         return True, success_msg, clean_df, detected_interval, validation_stats
 
+def get_season(date):
+    """
+    Determine season based on date (Northern Hemisphere)
+    """
+    month = date.month
+    if month in [12, 1, 2]:
+        return 'Winter'
+    elif month in [3, 4, 5]:
+        return 'Spring'
+    elif month in [6, 7, 8]:
+        return 'Summer'
+    elif month in [9, 10, 11]:
+        return 'Fall'
+
 def analyze_energy_data(df, detected_interval, energy_type, energy_unit):
     """
     Perform energy consumption analysis
@@ -332,6 +346,10 @@ def analyze_energy_data(df, detected_interval, energy_type, energy_unit):
     df['hour'] = df['timestamp'].dt.hour
     df['day_of_week'] = df['timestamp'].dt.day_name()
     df['date'] = df['timestamp'].dt.date
+    
+    # Seasonal analysis
+    df['season'] = df['timestamp'].dt.date.apply(get_season)
+    seasonal_hourly_avg = df.groupby(['season', 'hour'])['energy_consumption'].mean().unstack(level=0)
     
     # Daily patterns
     hourly_avg = df.groupby('hour')['energy_consumption'].mean()
@@ -371,6 +389,7 @@ def analyze_energy_data(df, detected_interval, energy_type, energy_unit):
         'hourly_avg': hourly_avg,
         'daily_total': daily_total,
         'weekly_avg': weekly_avg,
+        'seasonal_hourly_avg': seasonal_hourly_avg,  # New addition
         'data_period': f"{df['timestamp'].min().strftime('%Y-%m-%d')} to {df['timestamp'].max().strftime('%Y-%m-%d')}",
         'detected_interval': detected_interval,
         'interval_text': interval_text,
@@ -388,36 +407,64 @@ def create_visualizations(analysis_results):
     energy_type = analysis_results['energy_type']
     energy_unit = analysis_results['energy_unit']
     
-    # Daily consumption pattern
-    fig1, ax1 = plt.subplots(figsize=(10, 6))
-    analysis_results['hourly_avg'].plot(kind='bar', ax=ax1)
-    ax1.set_title(f'Average {energy_type} consumption by hour of day')
-    ax1.set_xlabel('Hour of day')
-    ax1.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
-    plt.xticks(rotation=0)
+    # Daily totals over time
+    fig1, ax1 = plt.subplots(figsize=(12, 6))
+    daily_total = analysis_results['daily_total']
+    ax1.plot(daily_total.index, daily_total.values, marker='o')
+    ax1.set_title(f'Total daily {energy_type} consumption')
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel(f'Total {energy_type} consumption ({energy_unit})')
+    plt.xticks(rotation=45)
     plt.tight_layout()
     figures.append(fig1)
     
-    # Weekly pattern
+    # Daily consumption pattern
     fig2, ax2 = plt.subplots(figsize=(10, 6))
-    analysis_results['weekly_avg'].plot(kind='bar', ax=ax2, color='orange')
-    ax2.set_title(f'Average {energy_type} Consumption by day of week')
-    ax2.set_xlabel('Day of week')
+    analysis_results['hourly_avg'].plot(kind='line', ax=ax2)
+    ax2.set_title(f'Average {energy_type} consumption by hour of day')
+    ax2.set_xlabel('Hour of day')
     ax2.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=0)
     plt.tight_layout()
     figures.append(fig2)
     
-    # Daily totals over time
-    fig3, ax3 = plt.subplots(figsize=(12, 6))
-    daily_total = analysis_results['daily_total']
-    ax3.plot(daily_total.index, daily_total.values, marker='o')
-    ax3.set_title(f'Total daily {energy_type} consumption')
-    ax3.set_xlabel('Date')
-    ax3.set_ylabel(f'Total {energy_type} consumption ({energy_unit})')
+    # Weekly pattern
+    fig3, ax3 = plt.subplots(figsize=(10, 6))
+    analysis_results['weekly_avg'].plot(kind='line', ax=ax3, color='orange')
+    ax3.set_title(f'Average {energy_type} Consumption by day of week')
+    ax3.set_xlabel('Day of week')
+    ax3.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
     plt.xticks(rotation=45)
     plt.tight_layout()
     figures.append(fig3)
+    
+    # Seasonal hourly consumption pattern - NEW VISUALIZATION
+    fig4, ax4 = plt.subplots(figsize=(12, 8))
+    seasonal_data = analysis_results['seasonal_hourly_avg']
+    
+    # Define colors for each season
+    season_colors = {
+        'Spring': '#90EE90',  # Light green
+        'Summer': '#FFD700',  # Gold
+        'Fall': '#FF8C00',    # Dark orange
+        'Winter': '#87CEEB'   # Sky blue
+    }
+    
+    # Plot each season that exists in the data
+    for season in seasonal_data.columns:
+        if season in season_colors:
+            ax4.plot(seasonal_data.index, seasonal_data[season], 
+                    label=season, linewidth=2, marker='o', markersize=4,
+                    color=season_colors[season])
+    
+    ax4.set_title(f'Average {energy_type} Consumption by Hour of Day - Seasonal Comparison')
+    ax4.set_xlabel('Hour of Day')
+    ax4.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
+    ax4.legend(title='Season')
+    ax4.grid(True, alpha=0.3)
+    ax4.set_xticks(range(0, 24, 2))
+    plt.tight_layout()
+    figures.append(fig4)
     
     return figures
 
@@ -575,8 +622,6 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
     doc.build(story)
     buffer.seek(0)
     return buffer.getvalue()
-
-    # NO CLEANUP CODE NEEDED - No temporary files were ever created!
 
 # Streamlit App
 st.set_page_config(page_title="Energy consumption report and savings potential generator", layout="wide")
