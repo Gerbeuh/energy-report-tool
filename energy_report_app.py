@@ -607,8 +607,8 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
             story.append(img)
             story.append(Spacer(1, 12))
             
-            # img_buffer automatically garbage collected when out of scope
-            # No cleanup needed - no files were created!
+            # Close the buffer explicitly to free memory
+            img_buffer.close()
             
         except Exception as e:
             # If chart generation fails, add placeholder text instead of crashing
@@ -619,9 +619,19 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
             print(f"Chart {i+1} generation failed: {e}")
     
     # Build PDF - all processing done in memory
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
+    try:
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.getvalue()
+    except Exception as e:
+        print(f"PDF generation failed: {e}")
+        # Return a simple error PDF
+        error_buffer = io.BytesIO()
+        error_doc = SimpleDocTemplate(error_buffer, pagesize=letter)
+        error_story = [Paragraph(f"Error generating report: {str(e)}", styles['Normal'])]
+        error_doc.build(error_story)
+        error_buffer.seek(0)
+        return error_buffer.getvalue()
 
 # Streamlit App
 st.set_page_config(page_title="Energy consumption report and savings potential generator", layout="wide")
@@ -656,9 +666,11 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
     try:
+        # Create a copy of the uploaded file to avoid context manager issues
+        file_content = uploaded_file.read()
+        
         # Try to detect the delimiter automatically
-        sample = uploaded_file.read(1024).decode('utf-8')
-        uploaded_file.seek(0)  # Reset file pointer
+        sample = file_content[:1024].decode('utf-8')
         
         # Check for common delimiters
         if ';' in sample and sample.count(';') > sample.count(','):
@@ -670,8 +682,9 @@ if uploaded_file is not None:
         else:
             delimiter = ','  # Default fallback
         
-        # Read the uploaded file with detected delimiter
-        df = pd.read_csv(uploaded_file, sep=delimiter)
+        # Read the uploaded file with detected delimiter using StringIO
+        from io import StringIO
+        df = pd.read_csv(StringIO(file_content.decode('utf-8')), sep=delimiter)
         
         st.info(f"Detected delimiter: '{delimiter}'")
         
@@ -740,11 +753,13 @@ if uploaded_file is not None:
                 if validation_stats.get('outliers') and validation_stats['outliers']['total_outliers'] > 0:
                     st.markdown("**📈 Statistical summary**")
                     ol = validation_stats['outliers']
-                    stats_col1 = st.columns(1)
+                    stats_col1, stats_col2 = st.columns(2)
                     
                     with stats_col1:
                         st.write(f"**Min:** {ol['min_value']:.2f} {current_unit}")
                         st.write(f"**Mean:** {ol['mean']:.2f} {current_unit}")
+                    
+                    with stats_col2:
                         st.write(f"**Max:** {ol['max_value']:.2f} {current_unit}")
                         st.write(f"**Median:** {ol['median']:.2f} {current_unit}")
                     
@@ -782,23 +797,30 @@ if uploaded_file is not None:
             
             for i, fig in enumerate(figures):
                 st.pyplot(fig)
+                # Close figure to free memory
+                plt.close(fig)
             
             # Generate and offer PDF download
             st.subheader("📄 Generate Report")
             
             if st.button("📥 Generate PDF Report", type="primary"):
                 with st.spinner("Generating PDF report..."):
-                    pdf_bytes = generate_pdf_report(analysis_results, figures, validation_stats)
-                
-                st.download_button(
-                    label="📥 Download PDF report",  
-                    data=pdf_bytes,
-                    file_name=f"{energy_type.lower()}_consumption_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-                
-                st.success("✅ PDF report generated successfully!")
+                    try:
+                        pdf_bytes = generate_pdf_report(analysis_results, figures, validation_stats)
+                        
+                        st.download_button(
+                            label="📥 Download PDF report",  
+                            data=pdf_bytes,
+                            file_name=f"{energy_type.lower()}_consumption_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+                        
+                        st.success("✅ PDF report generated successfully!")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Error generating PDF: {str(e)}")
+                        st.info("Please try again or check your data.")
         
         else:
             st.error(f"❌ Data validation failed: {message}")
@@ -811,6 +833,10 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"❌ Error processing file: {str(e)}")
         st.info("Please ensure your file is a valid CSV with the correct format.")
+        
+        # Additional debugging info
+        st.write("**Error details:**")
+        st.code(str(e))
 
 else:
     st.info("👆 Please upload a CSV file to get started.")
