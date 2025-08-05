@@ -8,10 +8,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-# Add these imports at the top of your script
-import matplotlib
-matplotlib.use('Agg')  # Force non-interactive backend
-
 
 def validate_energy_data(df, energy_type):
     """
@@ -404,85 +400,70 @@ def analyze_energy_data(df, detected_interval, energy_type, energy_unit):
 
 def create_visualizations(analysis_results):
     """
-    Create matplotlib visualizations with forced refresh
+    Create matplotlib visualizations with proper units
+    Returns list of figure objects
     """
-    # CRITICAL: Clear all matplotlib state
-    plt.ioff()  # Turn off interactive mode
-    plt.clf()   # Clear current figure
-    plt.close('all')  # Close all figures
-    matplotlib.pyplot.close('all')  # Extra cleanup
-    
     figures = []
     energy_type = analysis_results['energy_type']
     energy_unit = analysis_results['energy_unit']
     
     # Daily totals over time
-    fig1 = plt.figure(figsize=(8, 5))  # Create new figure explicitly
-    ax1 = fig1.add_subplot(111)
+    fig1, ax1 = plt.subplots(figsize=(12, 6))
     daily_total = analysis_results['daily_total']
-    ax1.plot(daily_total.index, daily_total.values, marker='o', markersize=3, linewidth=2)
-    ax1.set_title(f'Total daily {energy_type} consumption', fontsize=12)
-    ax1.set_xlabel('Date', fontsize=10)
-    ax1.set_ylabel(f'Total {energy_type} consumption ({energy_unit})', fontsize=10)
-    ax1.tick_params(axis='both', which='major', labelsize=9)
-    plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45)
-    fig1.tight_layout()
+    ax1.plot(daily_total.index, daily_total.values, marker='o')
+    ax1.set_title(f'Total daily {energy_type} consumption')
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel(f'Total {energy_type} consumption ({energy_unit})')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     figures.append(fig1)
     
-    # Daily consumption pattern - CHANGED TO LINE
-    fig2 = plt.figure(figsize=(8, 5))
-    ax2 = fig2.add_subplot(111)
-    # Using explicit line plot instead of pandas plot
-    hourly_data = analysis_results['hourly_avg']
-    ax2.plot(hourly_data.index, hourly_data.values, linewidth=2, marker='o', markersize=3)
-    ax2.set_title(f'Average {energy_type} consumption by hour of day', fontsize=12)
-    ax2.set_xlabel('Hour of day', fontsize=10)
-    ax2.set_ylabel(f'{energy_type} Consumption ({energy_unit})', fontsize=10)
-    ax2.tick_params(axis='both', which='major', labelsize=9)
-    ax2.grid(True, alpha=0.3)
-    fig2.tight_layout()
+    # Daily consumption pattern
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    analysis_results['hourly_avg'].plot(kind='line', ax=ax2)
+    ax2.set_title(f'Average {energy_type} consumption by hour of day')
+    ax2.set_xlabel('Hour of day')
+    ax2.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
+    plt.xticks(rotation=0)
+    plt.tight_layout()
     figures.append(fig2)
     
-    # Weekly pattern - CHANGED TO LINE
-    fig3 = plt.figure(figsize=(8, 5))
-    ax3 = fig3.add_subplot(111)
-    weekly_data = analysis_results['weekly_avg']
-    ax3.plot(weekly_data.index, weekly_data.values, color='orange', linewidth=2, marker='o', markersize=4)
-    ax3.set_title(f'Average {energy_type} Consumption by day of week', fontsize=12)
-    ax3.set_xlabel('Day of week', fontsize=10)
-    ax3.set_ylabel(f'{energy_type} Consumption ({energy_unit})', fontsize=10)
-    ax3.tick_params(axis='both', which='major', labelsize=9)
-    plt.setp(ax3.xaxis.get_majorticklabels(), rotation=45)
-    ax3.grid(True, alpha=0.3)
-    fig3.tight_layout()
+    # Weekly pattern
+    fig3, ax3 = plt.subplots(figsize=(10, 6))
+    analysis_results['weekly_avg'].plot(kind='line', ax=ax3, color='orange')
+    ax3.set_title(f'Average {energy_type} Consumption by day of week')
+    ax3.set_xlabel('Day of week')
+    ax3.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     figures.append(fig3)
     
-    # Seasonal hourly consumption pattern
-    fig4 = plt.figure(figsize=(8, 5))
-    ax4 = fig4.add_subplot(111)
+    # Seasonal hourly consumption pattern - NEW VISUALIZATION
+    fig4, ax4 = plt.subplots(figsize=(12, 8))
     seasonal_data = analysis_results['seasonal_hourly_avg']
     
+    # Define colors for each season
     season_colors = {
-        'Spring': '#90EE90',
-        'Summer': '#FFD700', 
-        'Fall': '#FF8C00',
-        'Winter': '#87CEEB'
+        'Spring': '#90EE90',  # Light green
+        'Summer': '#FFD700',  # Gold
+        'Fall': '#FF8C00',    # Dark orange
+        'Winter': '#87CEEB'   # Sky blue
     }
     
+    # Plot each season that exists in the data
     for season in seasonal_data.columns:
         if season in season_colors:
             ax4.plot(seasonal_data.index, seasonal_data[season], 
-                    label=season, linewidth=2, marker='o', markersize=3,
+                    label=season, linewidth=2, marker='o', markersize=4,
                     color=season_colors[season])
     
-    ax4.set_title(f'Average {energy_type} Consumption by Hour - Seasonal', fontsize=12)
-    ax4.set_xlabel('Hour of Day', fontsize=10)
-    ax4.set_ylabel(f'{energy_type} Consumption ({energy_unit})', fontsize=10)
-    ax4.tick_params(axis='both', which='major', labelsize=9)
-    ax4.legend(title='Season', fontsize=9, title_fontsize=10)
+    ax4.set_title(f'Average {energy_type} Consumption by Hour of Day - Seasonal Comparison')
+    ax4.set_xlabel('Hour of Day')
+    ax4.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
+    ax4.legend(title='Season')
     ax4.grid(True, alpha=0.3)
-    ax4.set_xticks(range(0, 24, 4))
-    fig4.tight_layout()
+    ax4.set_xticks(range(0, 24, 2))
+    plt.tight_layout()
     figures.append(fig4)
     
     return figures
@@ -796,38 +777,11 @@ if uploaded_file is not None:
             with col4:
                 st.metric(f"Peak {energy_type}", f"{analysis_results['peak_consumption']:.2f} {current_unit}")
             
-            # Display visualizations in 2x2 grid
+            # Display visualizations
             st.subheader("📈 Visualizations")
             
-            # First row - two columns
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Daily Total Consumption")
-                if len(figures) > 0:
-                    st.pyplot(figures[0])
-                    plt.close(figures[0])
-            
-            with col2:
-                st.subheader("Hourly Consumption Pattern")
-                if len(figures) > 1:
-                    st.pyplot(figures[1])
-                    plt.close(figures[1])
-            
-            # Second row - two columns
-            col3, col4 = st.columns(2)
-            
-            with col3:
-                st.subheader("Weekly Consumption Pattern")
-                if len(figures) > 2:
-                    st.pyplot(figures[2])
-                    plt.close(figures[2])
-            
-            with col4:
-                st.subheader("Seasonal Consumption Pattern")
-                if len(figures) > 3:
-                    st.pyplot(figures[3])
-                    plt.close(figures[3])
+            for i, fig in enumerate(figures):
+                st.pyplot(fig)
             
             # Generate and offer PDF download
             st.subheader("📄 Generate Report")
