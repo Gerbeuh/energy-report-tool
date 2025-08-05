@@ -8,8 +8,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-import tempfile
-import os
 
 def validate_energy_data(df, energy_type):
     """
@@ -425,8 +423,8 @@ def create_visualizations(analysis_results):
 
 def generate_pdf_report(analysis_results, figures, validation_stats):
     """
-    Generate PDF report using ReportLab with proper energy type, units, and data quality
-    Returns bytes of PDF file
+    Generate PDF report using ReportLab with SECURE in-memory image handling
+    Returns bytes of PDF file - NO temporary files created on disk
     """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -549,46 +547,36 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
         story.append(rec_para)
         story.append(Spacer(1, 20))
     
-    # Add charts
-    temp_files = []
-    try:
-        for i, fig in enumerate(figures):
-            # Save figure to temporary file
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
-                temp_filename = tmp_file.name
-                temp_files.append(temp_filename)
+    # SECURE CHART HANDLING - NO TEMP FILES, PURE MEMORY APPROACH
+    for i, fig in enumerate(figures):
+        try:
+            # Create PNG image in memory buffer - NEVER touches disk
+            img_buffer = io.BytesIO()
+            fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+            img_buffer.seek(0)  # Reset buffer position to beginning
             
-            # Save the figure (file is now closed)
-            fig.savefig(temp_filename, format='png', dpi=150, bbox_inches='tight')
-            
-            # Add image to PDF
-            img = Image(temp_filename, width=500, height=300)
+            # Create ReportLab Image directly from memory buffer
+            img = Image(img_buffer, width=500, height=300)
             story.append(img)
             story.append(Spacer(1, 12))
+            
+            # img_buffer automatically garbage collected when out of scope
+            # No cleanup needed - no files were created!
+            
+        except Exception as e:
+            # If chart generation fails, add placeholder text instead of crashing
+            error_para = Paragraph(f"[Chart {i+1} could not be generated: {type(e).__name__}]", styles['Normal'])
+            story.append(error_para)
+            story.append(Spacer(1, 12))
+            # Log error for debugging (optional)
+            print(f"Chart {i+1} generation failed: {e}")
     
-    except Exception as e:
-        # Clean up any temp files if there's an error
-        for temp_file in temp_files:
-            try:
-                if os.path.exists(temp_file):
-                    os.unlink(temp_file)
-            except:
-                pass
-        raise e
-    
-    # Build PDF
+    # Build PDF - all processing done in memory
     doc.build(story)
-    
-    # Clean up temp files after PDF is built
-    for temp_file in temp_files:
-        try:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
-        except:
-            pass  # Ignore cleanup errors
-    
     buffer.seek(0)
     return buffer.getvalue()
+
+    # NO CLEANUP CODE NEEDED - No temporary files were ever created!
 
 # Streamlit App
 st.set_page_config(page_title="Energy consumption report and savings potential generator", layout="wide")
@@ -707,17 +695,13 @@ if uploaded_file is not None:
                 if validation_stats.get('outliers') and validation_stats['outliers']['total_outliers'] > 0:
                     st.markdown("**📈 Statistical summary**")
                     ol = validation_stats['outliers']
-                    stats_col1, stats_col2 = st.columns(2)
+                    stats_col1 = st.columns(1)
                     
                     with stats_col1:
                         st.write(f"**Min:** {ol['min_value']:.2f} {current_unit}")
-                        st.write(f"**Q1:** {ol['q1']:.2f} {current_unit}")
-                        st.write(f"**Median:** {ol['median']:.2f} {current_unit}")
-                    
-                    with stats_col2:
-                        st.write(f"**Q3:** {ol['q3']:.2f} {current_unit}")
+                        st.write(f"**Mean:** {ol['mean']:.2f} {current_unit}")
                         st.write(f"**Max:** {ol['max_value']:.2f} {current_unit}")
-                        st.write(f"**Std Dev:** {ol['std']:.2f} {current_unit}")
+                        st.write(f"**Median:** {ol['median']:.2f} {current_unit}")
                     
                     if ol['extreme_outliers'] > 0:
                         st.warning(f"⚠️ {ol['extreme_outliers']} extreme outliers detected (>3×IQR). These may indicate data errors or unusual consumption events.")
