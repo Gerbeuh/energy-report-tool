@@ -393,8 +393,8 @@ def create_visualizations(analysis_results):
     # Daily consumption pattern
     fig1, ax1 = plt.subplots(figsize=(10, 6))
     analysis_results['hourly_avg'].plot(kind='bar', ax=ax1)
-    ax1.set_title(f'Average {energy_type} Consumption by Hour of Day')
-    ax1.set_xlabel('Hour of Day')
+    ax1.set_title(f'Average {energy_type} consumption by hour of day')
+    ax1.set_xlabel('Hour of day')
     ax1.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
     plt.xticks(rotation=0)
     plt.tight_layout()
@@ -403,8 +403,8 @@ def create_visualizations(analysis_results):
     # Weekly pattern
     fig2, ax2 = plt.subplots(figsize=(10, 6))
     analysis_results['weekly_avg'].plot(kind='bar', ax=ax2, color='orange')
-    ax2.set_title(f'Average {energy_type} Consumption by Day of Week')
-    ax2.set_xlabel('Day of Week')
+    ax2.set_title(f'Average {energy_type} Consumption by day of week')
+    ax2.set_xlabel('Day of week')
     ax2.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
     plt.xticks(rotation=45)
     plt.tight_layout()
@@ -414,9 +414,9 @@ def create_visualizations(analysis_results):
     fig3, ax3 = plt.subplots(figsize=(12, 6))
     daily_total = analysis_results['daily_total']
     ax3.plot(daily_total.index, daily_total.values, marker='o')
-    ax3.set_title(f'Daily Total {energy_type} Consumption Over Time')
+    ax3.set_title(f'Total daily {energy_type} consumption')
     ax3.set_xlabel('Date')
-    ax3.set_ylabel(f'Total {energy_type} Consumption ({energy_unit})')
+    ax3.set_ylabel(f'Total {energy_type} consumption ({energy_unit})')
     plt.xticks(rotation=45)
     plt.tight_layout()
     figures.append(fig3)
@@ -437,12 +437,12 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
     energy_unit = analysis_results['energy_unit']
     
     # Title
-    title = Paragraph(f"{energy_type} Consumption Analysis Report", styles['Title'])
+    title = Paragraph(f"{energy_type} Energy savings potential report", styles['Title'])
     story.append(title)
     story.append(Spacer(1, 12))
     
     # Summary section
-    summary_title = Paragraph("Executive Summary", styles['Heading1'])
+    summary_title = Paragraph("Summary of inputs and statistics", styles['Heading1'])
     story.append(summary_title)
     
     summary_text = f"""
@@ -463,7 +463,7 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
     story.append(Spacer(1, 20))
     
     # Data Quality Section
-    quality_title = Paragraph("Data Quality Assessment", styles['Heading1'])
+    quality_title = Paragraph("Data quality assessment", styles['Heading1'])
     story.append(quality_title)
     
     # Build data quality text
@@ -542,7 +542,7 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
         recommendations.append("• Multiple data gaps detected - consider improving data collection reliability")
     
     if recommendations:
-        rec_title = Paragraph("Data Quality Recommendations", styles['Heading2'])
+        rec_title = Paragraph("Data quality recommendations", styles['Heading2'])
         story.append(rec_title)
         rec_text = "<para>" + "<br/>".join(recommendations) + "</para>"
         rec_para = Paragraph(rec_text, styles['Normal'])
@@ -591,10 +591,10 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
     return buffer.getvalue()
 
 # Streamlit App
-st.set_page_config(page_title="Energy Consumption Report Generator", layout="wide")
+st.set_page_config(page_title="Energy consumption report and savings potential generator", layout="wide")
 
-st.title("🔋 Energy Consumption Report Generator")
-st.markdown("Upload your energy consumption data to generate an automated analysis report.")
+st.title("🔋 Energy consumption report and savings potential generator")
+st.markdown("Upload your energy (gas/electricity/heat) consumption data to generate an automated analysis report.")
 
 # Energy type selection
 energy_type = st.selectbox(
@@ -642,7 +642,7 @@ if uploaded_file is not None:
         
         st.info(f"Detected delimiter: '{delimiter}'")
         
-        st.subheader("📋 Data Validation")
+        st.subheader("📋 Data validation")
         
         # Validate the data
         is_valid, message, clean_df, detected_interval, validation_stats = validate_energy_data(df, energy_type)
@@ -652,11 +652,11 @@ if uploaded_file is not None:
             st.info(f"Dataset contains {len(clean_df)} valid data points with {detected_interval} intervals")
             
             # Display detailed validation statistics
-            with st.expander("📊 Data Quality Report", expanded=True):
+            with st.expander("📊 Data quality report", expanded=True):
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.markdown("**📅 Date Range**")
+                    st.markdown("**📅 Date range**")
                     if validation_stats.get('date_range'):
                         dr = validation_stats['date_range']
                         st.write(f"**From:** {dr['first_date'].strftime('%Y-%m-%d %H:%M')}")
@@ -664,7 +664,7 @@ if uploaded_file is not None:
                         st.write(f"**Duration:** {dr['duration_days']} days ({dr['duration_hours']:.1f} hours)")
                 
                 with col2:
-                    st.markdown("**🔍 Data Completeness**")
+                    st.markdown("**🔍 Data completeness**")
                     if validation_stats.get('data_gaps'):
                         dg = validation_stats['data_gaps']
                         st.write(f"**Expected points:** {dg['expected_points']:,}")
@@ -674,7 +674,7 @@ if uploaded_file is not None:
                         st.write(f"**Completeness:** {completeness_color} {dg['completeness_pct']:.1f}%")
                 
                 with col3:
-                    st.markdown("**⚠️ Data Issues**")
+                    st.markdown("**⚠️ Data issues**")
                     if validation_stats.get('data_quality'):
                         dq = validation_stats['data_quality']
                         st.write(f"**NaN values:** {dq['total_nans']:,} ({dq['nan_percentage']:.1f}%)")
@@ -705,7 +705,7 @@ if uploaded_file is not None:
                 
                 # Outlier details
                 if validation_stats.get('outliers') and validation_stats['outliers']['total_outliers'] > 0:
-                    st.markdown("**📈 Statistical Summary**")
+                    st.markdown("**📈 Statistical summary**")
                     ol = validation_stats['outliers']
                     stats_col1, stats_col2 = st.columns(2)
                     
@@ -727,7 +727,7 @@ if uploaded_file is not None:
                 st.dataframe(clean_df.head(10))
             
             # Perform analysis
-            st.subheader("📊 Analysis Results")
+            st.subheader("📊 Analysis results")
             
             with st.spinner(f"Analyzing {energy_type.lower()} consumption data..."):
                 analysis_results = analyze_energy_data(clean_df, detected_interval, energy_type, current_unit)
@@ -757,12 +757,12 @@ if uploaded_file is not None:
             # Generate and offer PDF download
             st.subheader("📄 Generate Report")
             
-            if st.button("📥 Generate & Download PDF Report", type="primary"):
+            if st.button("📥 Generate PDF Report", type="primary"):
                 with st.spinner("Generating PDF report..."):
                     pdf_bytes = generate_pdf_report(analysis_results, figures, validation_stats)
                 
                 st.download_button(
-                    label="📥 Download PDF Report",  
+                    label="📥 Download PDF report",  
                     data=pdf_bytes,
                     file_name=f"{energy_type.lower()}_consumption_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
                     mime="application/pdf",
