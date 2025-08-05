@@ -438,16 +438,6 @@ def create_visualizations(analysis_results):
     plt.tight_layout()
     figures.append(fig3)
     
-    # Weekly pattern
-    fig5, ax5 = plt.subplots(figsize=(10, 6))
-    analysis_results['weekly_avg'].plot(kind='line', ax=ax5, color='orange')
-    ax5.set_title(f'Average {energy_type} Consumption by day of week')
-    ax5.set_xlabel('Day of week')
-    ax5.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    figures.append(fig5)
-    
     # Seasonal hourly consumption pattern - NEW VISUALIZATION
     fig4, ax4 = plt.subplots(figsize=(12, 8))
     seasonal_data = analysis_results['seasonal_hourly_avg']
@@ -790,8 +780,26 @@ if uploaded_file is not None:
             # Display visualizations
             st.subheader("📈 Visualizations")
             
-            for i, fig in enumerate(figures):
-                st.pyplot(fig)
+            # Method 1: Display figures individually instead of in a loop
+            st.subheader("Daily Total Consumption")
+            if len(figures) > 0:
+                st.pyplot(figures[0])
+                plt.close(figures[0])
+            
+            st.subheader("Hourly Consumption Pattern")
+            if len(figures) > 1:
+                st.pyplot(figures[1])
+                plt.close(figures[1])
+            
+            st.subheader("Weekly Consumption Pattern")
+            if len(figures) > 2:
+                st.pyplot(figures[2])
+                plt.close(figures[2])
+            
+            st.subheader("Seasonal Consumption Pattern")
+            if len(figures) > 3:
+                st.pyplot(figures[3])
+                plt.close(figures[3])
             
             # Generate and offer PDF download
             st.subheader("📄 Generate Report")
