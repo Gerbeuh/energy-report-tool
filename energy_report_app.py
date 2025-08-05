@@ -438,6 +438,16 @@ def create_visualizations(analysis_results):
     plt.tight_layout()
     figures.append(fig3)
     
+    # Weekly pattern
+    fig5, ax5 = plt.subplots(figsize=(10, 6))
+    analysis_results['weekly_avg'].plot(kind='line', ax=ax5, color='orange')
+    ax5.set_title(f'Average {energy_type} Consumption by day of week')
+    ax5.set_xlabel('Day of week')
+    ax5.set_ylabel(f'{energy_type} Consumption ({energy_unit})')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    figures.append(fig5)
+    
     # Seasonal hourly consumption pattern - NEW VISUALIZATION
     fig4, ax4 = plt.subplots(figsize=(12, 8))
     seasonal_data = analysis_results['seasonal_hourly_avg']
