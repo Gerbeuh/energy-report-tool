@@ -846,8 +846,6 @@ if uploaded_file is not None:
                         st.write(f"**Max:** {ol['max_value']:.2f} {current_unit}")
                         st.write(f"**Median:** {ol['median']:.2f} {current_unit}")
                     
-                    with stats_col2:
-                    
                     if ol['extreme_outliers'] > 0:
                         st.warning(f"⚠️ {ol['extreme_outliers']} extreme outliers detected (>3×IQR). These may indicate data errors or unusual consumption events.")
             
