@@ -8,6 +8,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+import copy
 
 def validate_energy_data(df, energy_type):
     """
@@ -477,6 +478,81 @@ def create_visualizations(analysis_results):
     figures.append(fig4)
     
     return figures
+
+def create_visualizations_for_display(analysis_results):
+    """
+    Create separate matplotlib visualizations for Streamlit display
+    Returns list of figure objects that can be safely closed after display
+    """
+    display_figures = []
+    energy_type = analysis_results['energy_type']
+    energy_unit = analysis_results['energy_unit']
+    
+    # Daily totals over time
+    fig1, ax1 = plt.subplots(figsize=(8, 5))
+    daily_total = analysis_results['daily_total']
+    ax1.plot(daily_total.index, daily_total.values, marker='o', markersize=3)
+    ax1.set_title(f'Total daily {energy_type} consumption', fontsize=12)
+    ax1.set_xlabel('Date', fontsize=10)
+    ax1.set_ylabel(f'Total {energy_type} consumption ({energy_unit})', fontsize=10)
+    ax1.tick_params(axis='both', which='major', labelsize=9)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    display_figures.append(fig1)
+    
+    # Daily consumption pattern
+    fig2, ax2 = plt.subplots(figsize=(8, 5))
+    analysis_results['hourly_avg'].plot(kind='line', ax=ax2, linewidth=2)
+    ax2.set_title(f'Average {energy_type} consumption by hour of day', fontsize=12)
+    ax2.set_xlabel('Hour of day', fontsize=10)
+    ax2.set_ylabel(f'{energy_type} Consumption ({energy_unit})', fontsize=10)
+    ax2.tick_params(axis='both', which='major', labelsize=9)
+    plt.xticks(rotation=0)
+    plt.tight_layout()
+    display_figures.append(fig2)
+    
+    # Weekly pattern
+    fig3, ax3 = plt.subplots(figsize=(8, 5))
+    analysis_results['weekly_avg'].plot(kind='line', ax=ax3, color='orange', linewidth=2, marker='o')
+    ax3.set_title(f'Average {energy_type} Consumption by day of week', fontsize=12)
+    ax3.set_xlabel('Day of week', fontsize=10)
+    ax3.set_ylabel(f'{energy_type} Consumption ({energy_unit})', fontsize=10)
+    ax3.tick_params(axis='both', which='major', labelsize=9)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    display_figures.append(fig3)
+    
+    # Seasonal hourly consumption pattern
+    fig4, ax4 = plt.subplots(figsize=(8, 5))
+    seasonal_data = analysis_results['seasonal_hourly_avg']
+    
+    # Define colors for each season
+    season_colors = {
+        'Spring': '#90EE90',  # Light green
+        'Summer': '#FFD700',  # Gold
+        'Fall': '#FF8C00',    # Dark orange
+        'Winter': '#87CEEB'   # Sky blue
+    }
+    
+    # Plot each season that exists in the data
+    for season in seasonal_data.columns:
+        if season in season_colors:
+            ax4.plot(seasonal_data.index, seasonal_data[season], 
+                    label=season, linewidth=2, marker='o', markersize=3,
+                    color=season_colors[season])
+    
+    ax4.set_title(f'Average {energy_type} Consumption by Hour - Seasonal', fontsize=12)
+    ax4.set_xlabel('Hour of Day', fontsize=10)
+    ax4.set_ylabel(f'{energy_type} Consumption ({energy_unit})', fontsize=10)
+    ax4.tick_params(axis='both', which='major', labelsize=9)
+    ax4.legend(title='Season', fontsize=9, title_fontsize=10)
+    ax4.grid(True, alpha=0.3)
+    ax4.set_xticks(range(0, 24, 4))
+    plt.tight_layout()
+    display_figures.append(fig4)
+    
+    return display_figures
+
 def generate_pdf_report(analysis_results, figures, validation_stats):
     """
     Generate PDF report using ReportLab with SECURE in-memory image handling
@@ -784,7 +860,12 @@ if uploaded_file is not None:
             
             with st.spinner(f"Analyzing {energy_type.lower()} consumption data..."):
                 analysis_results = analyze_energy_data(clean_df, detected_interval, energy_type, current_unit)
-                figures = create_visualizations(analysis_results)
+                
+                # Create figures for PDF (these will be kept alive)
+                pdf_figures = create_visualizations(analysis_results)
+                
+                # Create separate figures for display (these can be closed after display)
+                display_figures = create_visualizations_for_display(analysis_results)
             
             # Display key metrics
             col1, col2, col3, col4 = st.columns(4)
@@ -801,7 +882,7 @@ if uploaded_file is not None:
             with col4:
                 st.metric(f"Peak {energy_type}", f"{analysis_results['peak_consumption']:.2f} {current_unit}")
             
-            # Display visualizations in 2x2 grid
+            # Display visualizations in 2x2 grid using display figures
             st.subheader("📈 Visualizations")
             
             # First row - two columns
@@ -809,30 +890,30 @@ if uploaded_file is not None:
             
             with col1:
                 st.subheader("Daily Total Consumption")
-                if len(figures) > 0:
-                    st.pyplot(figures[0])
-                    plt.close(figures[0])
+                if len(display_figures) > 0:
+                    st.pyplot(display_figures[0])
+                    plt.close(display_figures[0])  # Safe to close after display
             
             with col2:
                 st.subheader("Hourly Consumption Pattern")
-                if len(figures) > 1:
-                    st.pyplot(figures[1])
-                    plt.close(figures[1])
+                if len(display_figures) > 1:
+                    st.pyplot(display_figures[1])
+                    plt.close(display_figures[1])  # Safe to close after display
             
             # Second row - two columns
             col3, col4 = st.columns(2)
             
             with col3:
                 st.subheader("Weekly Consumption Pattern")
-                if len(figures) > 2:
-                    st.pyplot(figures[2])
-                    plt.close(figures[2])
+                if len(display_figures) > 2:
+                    st.pyplot(display_figures[2])
+                    plt.close(display_figures[2])  # Safe to close after display
             
             with col4:
                 st.subheader("Seasonal Consumption Pattern")
-                if len(figures) > 3:
-                    st.pyplot(figures[3])
-                    plt.close(figures[3])
+                if len(display_figures) > 3:
+                    st.pyplot(display_figures[3])
+                    plt.close(display_figures[3])  # Safe to close after display
             
             # Generate and offer PDF download
             st.subheader("📄 Generate Report")
@@ -840,7 +921,8 @@ if uploaded_file is not None:
             if st.button("📥 Generate PDF Report", type="primary"):
                 with st.spinner("Generating PDF report..."):
                     try:
-                        pdf_bytes = generate_pdf_report(analysis_results, figures, validation_stats)
+                        # Use the PDF figures (which are still alive) for PDF generation
+                        pdf_bytes = generate_pdf_report(analysis_results, pdf_figures, validation_stats)
                         
                         st.download_button(
                             label="📥 Download PDF report",  
@@ -851,6 +933,10 @@ if uploaded_file is not None:
                         )
                         
                         st.success("✅ PDF report generated successfully!")
+                        
+                        # Now it's safe to close the PDF figures
+                        for fig in pdf_figures:
+                            plt.close(fig)
                         
                     except Exception as e:
                         st.error(f"❌ Error generating PDF: {str(e)}")
