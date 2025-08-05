@@ -438,9 +438,8 @@ def create_visualizations(analysis_results):
     figures.append(fig2)
     
     # Weekly pattern
-    weekly_avg_reordered = analysis_results['weekly_avg'].reindex([1, 2, 3, 4, 5, 6, 0])  # Mon-Sun instead of Sun-Sat
     fig3, ax3 = plt.subplots(figsize=(8, 5))  # Reduced from (10, 6)
-    weekly_avg_reordered.plot(kind='line', ax=ax3, color='orange', linewidth=2, marker='o')
+    analysis_results['weekly_avg'].reindex([1, 2, 3, 4, 5, 6, 0]).plot(kind='line', ax=ax3, color='orange', linewidth=2, marker='o')
     ax3.set_title(f'Average {energy_type} Consumption by day of week', fontsize=12)
     ax3.set_xlabel('Day of week', fontsize=10)
     ax3.set_ylabel(f'{energy_type} Consumption ({energy_unit})', fontsize=10)
