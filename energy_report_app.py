@@ -626,7 +626,7 @@ def generate_pdf_report(analysis_results, figures, validation_stats):
 # Streamlit App
 st.set_page_config(page_title="Energy consumption report and savings potential generator", layout="wide")
 
-st.title("🔋 Energy consumption report and savings potential generator")
+st.title("🔋 Spectral Energy consumption report and savings potential generator")
 st.markdown("Upload your energy (gas/electricity/heat) consumption data to generate an automated analysis report.")
 
 # Energy type selection
